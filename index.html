@@ -434,7 +434,7 @@
       padding: 12px;
       box-shadow: var(--shadow-sm);
       display:grid;
-      grid-template-columns: 2.1fr 1fr 1fr 1.1fr 1fr 0.9fr 0.9fr;
+      grid-template-columns: 2.1fr 1fr 1fr 1fr 1.1fr 1fr 0.9fr 0.9fr;
       gap:10px;
       align-items:center;
     }
@@ -937,8 +937,8 @@ body[data-theme="dark"] .xscroll{ background: rgba(0,0,0,.18); }
     .sidebarOverlay.open{ display:block; }
 
     @media (max-width: 1220px){
-      .filters{ grid-template-columns: 1.8fr 1fr 1fr 1.1fr 1fr 0.9fr; }
-      .filters .field:nth-child(7){ display:none; } /* month */
+      .filters{ grid-template-columns: 1.8fr 1fr 1fr 1fr 1.1fr 1fr 0.9fr; }
+      .filters .field:nth-child(8){ display:none; } /* month */
       .kpis{ grid-template-columns: repeat(3, 1fr); }
       .grid{ grid-template-columns: 1fr; }
       table{ min-width: 980px; }
@@ -987,6 +987,8 @@ body[data-theme="dark"] .xscroll{ background: rgba(0,0,0,.18); }
 
       <div class="nav">
         <button class="tab active" id="tabDashboard" onclick="showPage('dashboard')">Painel</button>
+        <button class="tab" id="tabDiretoria" onclick="showPage('diretoria')">Diretoria</button>
+        <button class="tab" id="tabCompare" onclick="showPage('compare')">Comparar Excel</button>
         <button class="tab" id="tabTicket" onclick="showPage('ticket')">Ticket</button>
       </div>
 
@@ -1102,6 +1104,14 @@ body[data-theme="dark"] .xscroll{ background: rgba(0,0,0,.18); }
             </select>
           </div>
 
+
+          <div class="field">
+            <label>Categoria</label>
+            <select id="categoryFilter" onchange="applyFilters()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+
           <div class="field">
             <label>Prioridade</label>
             <select id="priorityFilter" onchange="applyFilters()">
@@ -1173,6 +1183,26 @@ body[data-theme="dark"] .xscroll{ background: rgba(0,0,0,.18); }
             <div class="k-label">Fechados / Resolvidos</div>
             <div class="k-value" id="kResolved">0</div>
             <div class="k-sub"><span class="dot green"></span><span>% resolvido: <strong id="kResolvedPct">0%</strong></span></div>
+          </div>
+        </div>
+
+        <div class="kpis" style="margin-top:10px;">
+          <div class="kpi" id="kpiCatProblema" onclick="quickCategory('problema')">
+            <div class="k-label">Categoria: Problema (abertos)</div>
+            <div class="k-value" id="kCatProblema">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Filtra por “Problema”</span></div>
+          </div>
+
+          <div class="kpi" id="kpiCatAdeqDuvida" onclick="quickCategory('adeq_duvida')">
+            <div class="k-label">Categoria: Adequação/Dúvida (abertos)</div>
+            <div class="k-value" id="kCatAdeqDuvida">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Filtra por adequação + dúvidas</span></div>
+          </div>
+
+          <div class="kpi" id="kpiCatAll" onclick="quickCategory('all')">
+            <div class="k-label">Categoria: limpar filtro</div>
+            <div class="k-value">×</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Remove o filtro de categoria</span></div>
           </div>
         </div>
 
@@ -1324,7 +1354,188 @@ body[data-theme="dark"] .xscroll{ background: rgba(0,0,0,.18); }
           </div>
         </div>
       </section>
-    </main>
+    
+      <!-- Diretoria Page -->
+      <section id="pageDiretoria" style="display:none;">
+        <div class="ticketHero">
+          <h3>Visão da Diretoria (classificação por categoria)</h3>
+          <p>Foco em <strong>Problemas</strong> vs <strong>Adequação/Dúvida</strong>. Use os cards para filtrar rapidamente os tickets em aberto.</p>
+
+          <div class="chips" style="margin-top:10px; gap:10px;">
+            <span class="chip" id="dirChipAll" onclick="setDiretoriaView('all')"><span class="x">✓</span> Todos</span>
+            <span class="chip" id="dirChipProblema" onclick="setDiretoriaView('problema')"><span class="x">!</span> Problema</span>
+            <span class="chip" id="dirChipAdeqDuvida" onclick="setDiretoriaView('adeq_duvida')"><span class="x">≋</span> Adequação / Dúvida</span>
+            <span class="chip" onclick="showPage('dashboard')"><span class="x">←</span> Voltar ao Painel</span>
+          </div>
+        </div>
+
+        <div class="kpis" style="margin-top:12px;">
+          <div class="kpi" onclick="setDiretoriaView('problema')" id="dirKpiProblema">
+            <div class="k-label">Problemas (abertos)</div>
+            <div class="k-value" id="dirProblema">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Incidentes / falhas</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('adeq_duvida')" id="dirKpiAdeq">
+            <div class="k-label">Adequação + Dúvida (abertos)</div>
+            <div class="k-value" id="dirAdeqDuvida">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Ajustes, regras, esclarecimentos</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiTotal">
+            <div class="k-label">Total em aberto</div>
+            <div class="k-value" id="dirOpenTotal">0</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Base atual (respeita filtros do Painel)</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('problema')" id="dirKpiOverdue">
+            <div class="k-label">Problemas fora do prazo</div>
+            <div class="k-value" id="dirProblemaOverdue">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>+7 dias em aberto</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiPrio">
+            <div class="k-label">Priorizados (abertos)</div>
+            <div class="k-value" id="dirPrioOpen">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Risco/impacto</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiAwait">
+            <div class="k-label">Aguardando retorno (abertos)</div>
+            <div class="k-value" id="dirAwaitOpen">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Dependência externa</span></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="ph">
+            <div class="t">Detalhamento (Diretoria)</div>
+            <div class="s">Ordenação: <strong>priorizados</strong> primeiro, depois <strong>mais antigos</strong> (SLA por data de abertura).</div>
+          </div>
+          <div class="pb">
+            <div class="small" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <span id="dirTableMeta">Linhas: 0</span>
+              <span id="dirTableFilterMeta"></span>
+            </div>
+
+            <div class="tablewrapTop" style="margin-top:10px;">
+              <div class="xscroll" id="dirTableXScrollTop"><div class="xscrollInner" id="dirTableXScrollTopInner"></div></div>
+              <div class="tablewrap" id="dirTableWrap">
+                <table id="dirTicketTable">
+                  <thead>
+                    <tr>
+                      <th>Número</th>
+                      <th>Aberto em</th>
+                      <th>Categoria</th>
+                      <th>Departamento</th>
+                      <th>Cliente</th>
+                      <th>Assunto</th>
+                      <th>Status</th>
+                      <th>Responsável</th>
+                      <th>Prior.</th>
+                      <th>Tempo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dirTicketTableBody">
+                    <tr><td colspan="10" style="text-align:center; padding:26px; color:var(--muted);">Carregue um Excel e aplique filtros no Painel para começar.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Comparar Excel Page -->
+      <section id="pageCompare" style="display:none;">
+        <div class="ticketHero">
+          <h3>Comparar Excel (antigo vs novo)</h3>
+          <p>Carregue dois arquivos (antes/depois) para identificar <strong>novos tickets</strong>, <strong>tickets removidos</strong> e <strong>alterações</strong> (status, responsável, categoria, prioridade, assunto, cliente, datas).</p>
+
+          <div class="ticketSearchRow" style="grid-template-columns: 1fr 1fr auto; margin-top:12px;">
+            <button class="btn" onclick="triggerCompareOld()">📎 Excel velho</button>
+            <button class="btn" onclick="triggerCompareNew()">📎 Excel novo</button>
+            <button class="btn primary" onclick="runCompare()">Comparar</button>
+          </div>
+
+          <div class="small" style="margin-top:10px; display:flex; gap:12px; flex-wrap:wrap;">
+            <span>Velho: <strong id="cmpOldName">—</strong></span>
+            <span>Novo: <strong id="cmpNewName">—</strong></span>
+          </div>
+
+          <div class="chips" style="margin-top:10px;">
+            <span class="chip" onclick="exportCompareCSV()"><span class="x">↓</span> Exportar alterações (CSV)</span>
+            <span class="chip" onclick="showPage('dashboard')"><span class="x">←</span> Voltar ao Painel</span>
+          </div>
+
+          <input type="file" id="compareOldInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCompareFile(event,'old')" />
+          <input type="file" id="compareNewInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCompareFile(event,'new')" />
+        </div>
+
+        <div class="kpis" style="margin-top:12px;">
+          <div class="kpi">
+            <div class="k-label">Novos tickets</div>
+            <div class="k-value" id="cmpAdded">0</div>
+            <div class="k-sub"><span class="dot green"></span><span>Existe só no novo</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Tickets removidos</div>
+            <div class="k-value" id="cmpRemoved">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Existe só no velho</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Tickets alterados</div>
+            <div class="k-value" id="cmpChanged">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Mesmo número, campos mudaram</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Total comparado</div>
+            <div class="k-value" id="cmpTotal">0</div>
+            <div class="k-sub"><span class="dot blue"></span><span>União (velho ∪ novo)</span></div>
+          </div>
+          <div class="kpi" onclick="setCompareFilter('changed')" id="cmpKpiChanged">
+            <div class="k-label">Ver somente alterados</div>
+            <div class="k-value">⇄</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Filtro</span></div>
+          </div>
+          <div class="kpi" onclick="setCompareFilter('all')" id="cmpKpiAll">
+            <div class="k-label">Ver tudo</div>
+            <div class="k-value">∞</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Filtro</span></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="ph">
+            <div class="t">Alterações detectadas</div>
+            <div class="s">Clique em uma linha para abrir o detalhe do ticket (modal).</div>
+          </div>
+          <div class="pb">
+            <div class="tablewrapTop" style="margin-top:10px;">
+              <div class="xscroll" id="cmpTableXScrollTop"><div class="xscrollInner" id="cmpTableXScrollTopInner"></div></div>
+              <div class="tablewrap" id="cmpTableWrap">
+                <table id="cmpTable">
+                  <thead>
+                    <tr>
+                      <th>Número</th>
+                      <th>Tipo</th>
+                      <th>Campo</th>
+                      <th>Antes</th>
+                      <th>Depois</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cmpTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding:26px; color:var(--muted);">Carregue dois arquivos e clique em “Comparar”.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+</main>
   </div>
 
   <!-- Modal -->
@@ -1364,6 +1575,18 @@ let lineChartInstance = null;
 const SLA_PROXY_DAYS = 7; // proxy (ajustável)
 let activeAgingBucket = null; // '0-3' | '4-7' | '8-15' | '15+' | null
 
+// Categoria (Painel)
+let activeCategory = ''; // valor do select (categoria original do Excel)
+
+// Diretoria
+let diretoriaView = 'all'; // 'all' | 'problema' | 'adeq_duvida'
+
+// Comparação Excel
+let compareOldTickets = [];
+let compareNewTickets = [];
+let compareDiffRows = []; // {numero, tipo, campo, antes, depois}
+let compareFilterMode = 'all';
+
 function $(id){ return document.getElementById(id); }
 
 function triggerFile(){ $('fileInput').click(); }
@@ -1371,7 +1594,7 @@ function triggerFile(){ $('fileInput').click(); }
 function removeExcel(openAfter){
   try{ localStorage.removeItem('tickets_cache_v2'); }catch(_){}
   allTickets = [];
-  filtered = [];
+  filteredTickets = [];
   $('fileLabel').textContent = 'Nenhum arquivo carregado';
   $('mobileFile').textContent = 'nenhum arquivo carregado';
   $('cacheFile').textContent = 'nenhum arquivo carregado';
@@ -1411,10 +1634,18 @@ function closeSidebar(){
 
 function showPage(page){
   $('tabDashboard').classList.toggle('active', page === 'dashboard');
+  $('tabDiretoria').classList.toggle('active', page === 'diretoria');
+  $('tabCompare').classList.toggle('active', page === 'compare');
   $('tabTicket').classList.toggle('active', page === 'ticket');
 
   $('pageDashboard').style.display = page === 'dashboard' ? 'block' : 'none';
+  $('pageDiretoria').style.display = page === 'diretoria' ? 'block' : 'none';
+  $('pageCompare').style.display = page === 'compare' ? 'block' : 'none';
   $('pageTicket').style.display = page === 'ticket' ? 'block' : 'none';
+
+  // Ao entrar em páginas novas, atualiza a UI específica
+  if (page === 'diretoria') updateDiretoriaPage();
+  if (page === 'compare') { setupCompareTopTableScroll(); renderCompareTable(); }
 
   closeSidebar();
 }
@@ -1626,6 +1857,64 @@ function isAwaitingStatus(status){
 }
 
 /* ---------------------------
+   Categoria (classificação)
+--------------------------- */
+function normStr(v){ return String(v || '').trim().toLowerCase(); }
+
+// Classificação simples para relatório gerencial.
+// Regra:
+// - Se categoria contém "problema" => problema
+// - Se contém "dúvida"/"duvida" => adeq_duvida
+// - Se contém "adequ" => adeq_duvida
+// - Caso contrário: adeq_duvida (pois, na prática, tende a ser ajuste/solução/rotina)
+function classifyCategory(ticket){
+  const c = normStr(ticket?.categoria);
+  if (!c) return 'adeq_duvida';
+  if (c.includes('problema')) return 'problema';
+  if (c.includes('duvida') || c.includes('dúvida')) return 'adeq_duvida';
+  if (c.includes('adequ')) return 'adeq_duvida';
+  return 'adeq_duvida';
+}
+
+function quickCategory(mode){
+  // mantém o select (se existir categoria específica) para filtragem fina.
+  // Aqui a gente usa um "modo" em cima do filtro atual.
+  // Para não conflitar com o select, aplicamos via activeKPICategoryMode.
+  activeKPI = 'all'; // não força KPI
+  document.querySelectorAll('.kpi').forEach(k => k.classList.remove('active'));
+  $('kpiTotal').classList.add('active');
+
+  // toggle rápido
+  if (mode === 'all'){
+    activeCategoryMode = null;
+  }else{
+    activeCategoryMode = (activeCategoryMode === mode) ? null : mode;
+  }
+  applyFilters();
+}
+
+// Modo rápido por categoria (Problema vs Adeq/Dúvida) sem depender do valor literal do Excel
+let activeCategoryMode = null; // 'problema' | 'adeq_duvida' | null
+
+function updateCategoryKpis(){
+  const baseOpen = (allTickets || []).filter(t => !isClosedStatus(t.status));
+  const p = baseOpen.filter(t => classifyCategory(t) === 'problema').length;
+  const a = baseOpen.filter(t => classifyCategory(t) !== 'problema').length;
+
+  const pF = (filteredTickets || []).filter(t => !isClosedStatus(t.status) && classifyCategory(t) === 'problema').length;
+  const aF = (filteredTickets || []).filter(t => !isClosedStatus(t.status) && classifyCategory(t) !== 'problema').length;
+
+  // mostra o total da base (não só filtrado) no card, mas poderia trocar para pF/aF se preferir
+  $('kCatProblema').textContent = pF;
+  $('kCatAdeqDuvida').textContent = aF;
+
+  // estado visual
+  $('kpiCatProblema')?.classList.toggle('active', activeCategoryMode === 'problema');
+  $('kpiCatAdeqDuvida')?.classList.toggle('active', activeCategoryMode === 'adeq_duvida');
+  $('kpiCatAll')?.classList.toggle('active', activeCategoryMode === null);
+}
+
+/* ---------------------------
    Aging (contagem + filtro)
 --------------------------- */
 function bucketMatch(days, bucket){
@@ -1676,12 +1965,14 @@ function buildFilterOptions(){
   const yearSet = new Set();
   const depSet = new Set();
   const clientSet = new Set();
+  const catSet = new Set();
 
   allTickets.forEach(t=>{
     const d = parseDate(t.abertoEm);
     if (d) yearSet.add(String(d.getFullYear()));
     if (t.departamento) depSet.add(t.departamento);
     if (t.cliente) clientSet.add(t.cliente);
+    if (t.categoria) catSet.add(t.categoria);
   });
 
   const yearSel = $('yearFilter');
@@ -1696,6 +1987,11 @@ function buildFilterOptions(){
 
   const cliSel = $('clientFilter');
   cliSel.innerHTML = `<option value="">Todos</option>` + [...clientSet].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+  const catSel = $('categoryFilter');
+  if (catSel){
+    catSel.innerHTML = `<option value="">Todas</option>` + [...catSet].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  }
 }
 
 function buildStatusMultiSelect(){
@@ -1783,6 +2079,7 @@ function clearAllFilters(resetKPI = true){
   $('searchInput').value = '';
   $('departmentFilter').value = '';
   $('clientFilter').value = '';
+  if ($('categoryFilter')) $('categoryFilter').value = '';
   $('priorityFilter').value = '';
   $('yearFilter').value = '';
   $('monthFilter').value = '';
@@ -1790,6 +2087,9 @@ function clearAllFilters(resetKPI = true){
 
   // reset aging
   activeAgingBucket = null;
+
+  // reset categoria (modo rápido)
+  activeCategoryMode = null;
 
   // clear status
   statusSelected.clear();
@@ -1834,6 +2134,7 @@ function applyFilters(){
   const q = $('searchInput').value.trim().toLowerCase();
   const dep = $('departmentFilter').value;
   const cli = $('clientFilter').value;
+  const cat = $('categoryFilter') ? $('categoryFilter').value : '';
   const prio = $('priorityFilter').value;
   const year = $('yearFilter').value;
   const month = $('monthFilter').value;
@@ -1858,6 +2159,14 @@ function applyFilters(){
 
     if (dep && t.departamento !== dep) return false;
     if (cli && t.cliente !== cli) return false;
+    if (cat && t.categoria !== cat) return false;
+
+    // Categoria (modo rápido: Problema vs Adequação/Dúvida)
+    if (activeCategoryMode){
+      const cls = classifyCategory(t);
+      if (activeCategoryMode === 'problema' && cls !== 'problema') return false;
+      if (activeCategoryMode === 'adeq_duvida' && cls === 'problema') return false;
+    }
 
     if (prio){
       const p = String(t.priorizado || '').toLowerCase() === 'sim' ? 'Sim' : 'Nao';
@@ -1897,12 +2206,16 @@ function applyFilters(){
 --------------------------- */
 function updateEverything(){
   updateKpis();
+  updateCategoryKpis();
   updateSidebar();
   updateChips();
   renderTable();
   updateCharts();
   updateLineChart();
   updateAgingCards(); // <<< IMPORTANTE: atualiza os números do Aging
+
+  // páginas adicionais
+  updateDiretoriaPage();
 }
 
 function updateKpis(){
@@ -2016,6 +2329,9 @@ function updateChips(){
   const cli = $('clientFilter').value;
   if (cli) add(`Cliente: ${cli}`, ()=>{ $('clientFilter').value=''; applyFilters(); });
 
+  const cat = $('categoryFilter') ? $('categoryFilter').value : '';
+  if (cat) add(`Categoria: ${cat}`, ()=>{ $('categoryFilter').value=''; applyFilters(); });
+
   const pr = $('priorityFilter').value;
   if (pr) add(`Priorizado: ${pr}`, ()=>{ $('priorityFilter').value=''; applyFilters(); });
 
@@ -2056,11 +2372,27 @@ function renderTable(){
     return;
   }
 
-// Ordenação: mais recente no topo (prioriza Última ação; se não existir, usa Aberto em)
+// Ordenação (Risco): Priorizados abertos primeiro, depois mais antigos (SLA por data de abertura).
+// Fechados ficam no final, ordenados por última ação (mais recente primeiro).
 const data = [...filteredTickets].sort((a, b) => {
+  const aClosed = isClosedStatus(a.status);
+  const bClosed = isClosedStatus(b.status);
+
+  if (aClosed !== bClosed) return aClosed ? 1 : -1;
+
+  const aPrio = (!aClosed && String(a.priorizado).toLowerCase() === 'sim') ? 1 : 0;
+  const bPrio = (!bClosed && String(b.priorizado).toLowerCase() === 'sim') ? 1 : 0;
+  if (aPrio !== bPrio) return bPrio - aPrio;
+
+  if (!aClosed && !bClosed){
+    const ad = daysOpen(a) ?? -1;
+    const bd = daysOpen(b) ?? -1;
+    if (ad !== bd) return bd - ad;
+  }
+
   const aKey = parseDate(a.ultimaAcao)?.getTime() ?? parseDate(a.abertoEm)?.getTime() ?? 0;
   const bKey = parseDate(b.ultimaAcao)?.getTime() ?? parseDate(b.abertoEm)?.getTime() ?? 0;
-  return bKey - aKey; // DESC = mais recente primeiro
+  return bKey - aKey;
 }).slice(0, 800);
 
 
@@ -2092,6 +2424,133 @@ const data = [...filteredTickets].sort((a, b) => {
   }).join('');
   // ajusta o scroll horizontal superior após renderizar a tabela
   setupTopTableScroll();
+}
+
+
+/* ---------------------------
+   Diretoria (Problema vs Adequação/Dúvida)
+--------------------------- */
+function setDiretoriaView(view){
+  diretoriaView = view || 'all';
+  updateDiretoriaPage();
+}
+
+function updateDiretoriaPage(){
+  const page = $('pageDiretoria');
+  if (!page || page.style.display === 'none') return;
+
+  // Base: respeita filtros do Painel (filteredTickets), mas foca em tickets em aberto
+  const base = (filteredTickets || []).filter(t => !isClosedStatus(t.status));
+  const problema = base.filter(t => classifyCategory(t) === 'problema');
+  const adeqduv = base.filter(t => classifyCategory(t) !== 'problema');
+
+  $('dirOpenTotal').textContent = base.length;
+  $('dirProblema').textContent = problema.length;
+  $('dirAdeqDuvida').textContent = adeqduv.length;
+
+  const prioOpen = base.filter(t => String(t.priorizado).toLowerCase() === 'sim').length;
+  const awaitOpen = base.filter(t => isAwaitingStatus(t.status)).length;
+  $('dirPrioOpen').textContent = prioOpen;
+  $('dirAwaitOpen').textContent = awaitOpen;
+
+  const probOverdue = problema.filter(t => {
+    const d = daysOpen(t);
+    return d !== null && d > SLA_PROXY_DAYS;
+  }).length;
+  $('dirProblemaOverdue').textContent = probOverdue;
+
+  // chips active
+  const chipAll = $('dirChipAll'), chipP = $('dirChipProblema'), chipAD = $('dirChipAdeqDuvida');
+  [chipAll, chipP, chipAD].forEach(el=> el && el.classList.remove('active'));
+  if (diretoriaView === 'problema') chipP?.classList.add('active');
+  else if (diretoriaView === 'adeq_duvida') chipAD?.classList.add('active');
+  else chipAll?.classList.add('active');
+
+  // KPIs active (sutil)
+  $('dirKpiProblema')?.classList.toggle('active', diretoriaView === 'problema');
+  $('dirKpiAdeq')?.classList.toggle('active', diretoriaView === 'adeq_duvida');
+  $('dirKpiTotal')?.classList.toggle('active', diretoriaView === 'all');
+
+  // Aplica filtro de visão e renderiza tabela
+  let viewData = base;
+  if (diretoriaView === 'problema') viewData = problema;
+  if (diretoriaView === 'adeq_duvida') viewData = adeqduv;
+
+  $('dirTableMeta').textContent = `Linhas: ${viewData.length}`;
+
+  const meta = [];
+  if (diretoriaView === 'problema') meta.push('Filtro: Problema');
+  if (diretoriaView === 'adeq_duvida') meta.push('Filtro: Adequação/Dúvida');
+  $('dirTableFilterMeta').textContent = meta.join(' • ');
+
+  renderDiretoriaTable(viewData);
+}
+
+function renderDiretoriaTable(list){
+  const tbody = $('dirTicketTableBody');
+  if (!tbody) return;
+
+  if (!list || !list.length){
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:26px; color:var(--muted);">Nenhum ticket em aberto para a visão selecionada.</td></tr>`;
+    setupDirTopTableScroll();
+    return;
+  }
+
+  const data = [...list].sort((a,b)=>{
+    const aPrio = String(a.priorizado).toLowerCase() === 'sim' ? 1 : 0;
+    const bPrio = String(b.priorizado).toLowerCase() === 'sim' ? 1 : 0;
+    if (aPrio !== bPrio) return bPrio - aPrio;
+    const ad = daysOpen(a) ?? -1;
+    const bd = daysOpen(b) ?? -1;
+    if (ad !== bd) return bd - ad;
+    const aKey = parseDate(a.ultimaAcao)?.getTime() ?? parseDate(a.abertoEm)?.getTime() ?? 0;
+    const bKey = parseDate(b.ultimaAcao)?.getTime() ?? parseDate(b.abertoEm)?.getTime() ?? 0;
+    return bKey - aKey;
+  }).slice(0, 800);
+
+  tbody.innerHTML = data.map(t=>{
+    const d = daysOpen(t);
+    const pr = (String(t.priorizado).toLowerCase() === 'sim') ? `<span class="badge2 prio-sim">Sim</span>` : `<span class="badge2 prio-nao">Não</span>`;
+    const ageClass = (d !== null && d > 15) ? 'age high' : 'age';
+    const age = d !== null ? `<span class="badge2 ${ageClass}">${d}d</span>` : `<span class="badge2 prio-nao">—</span>`;
+    const cat = classifyCategory(t) === 'problema' ? `<span class="badge2 st-erro">Problema</span>` : `<span class="badge2 st-wait">Adeq/Dúvida</span>`;
+    const st = statusBadge(t.status);
+
+    return `
+      <tr class="row" onclick="showTicketModal('${escapeJs(t.numero)}')">
+        <td><span class="tnum">#${escapeHtml(t.numero)}</span></td>
+        <td>${escapeHtml(fmtDate(t.abertoEm))}</td>
+        <td>${cat}</td>
+        <td>${escapeHtml(t.departamento || '-')}</td>
+        <td><div class="wrap2" title="${escapeHtml(t.cliente || '')}">${escapeHtml(t.cliente || '-')}</div></td>
+        <td><div class="wrap2" title="${escapeHtml(t.assunto || '')}">${escapeHtml(t.assunto || '-')}</div></td>
+        <td>${st}</td>
+        <td><div class="wrap2" title="${escapeHtml(t.responsavel || '')}">${escapeHtml(t.responsavel || '-')}</div></td>
+        <td>${pr}</td>
+        <td>${age}</td>
+      </tr>
+    `;
+  }).join('');
+
+  setupDirTopTableScroll();
+}
+
+function setupDirTopTableScroll(){
+  const wrap = $('dirTableWrap');
+  const top = $('dirTableXScrollTop');
+  const inner = $('dirTableXScrollTopInner');
+  if (!wrap || !top || !inner) return;
+
+  const table = $('dirTicketTable');
+  if (!table) return;
+
+  inner.style.width = table.scrollWidth + 'px';
+
+  top.onscroll = ()=>{ wrap.scrollLeft = top.scrollLeft; };
+  wrap.onscroll = ()=>{ top.scrollLeft = wrap.scrollLeft; };
+
+  // initial sync
+  top.scrollLeft = wrap.scrollLeft || 0;
 }
 
 function statusBadge(status){
@@ -2491,7 +2950,206 @@ function escapeJs(str){
 /* ---------------------------
    Boot
 --------------------------- */
-(function init(){
+/* ---------------------------
+   Comparar Excel (velho vs novo)
+--------------------------- */
+function triggerCompareOld(){ $('compareOldInput')?.click(); }
+function triggerCompareNew(){ $('compareNewInput')?.click(); }
+
+function handleCompareFile(event, which){
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined'){
+    alert('Biblioteca XLSX não carregou.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'dd/mm/yyyy' });
+
+      const tickets = rows.map(normalizeTicket).filter(t => String(t.numero || '').trim() !== '');
+
+      if (which === 'old'){
+        compareOldTickets = tickets;
+        $('cmpOldName').textContent = file.name;
+      }else{
+        compareNewTickets = tickets;
+        $('cmpNewName').textContent = file.name;
+      }
+
+      // limpa resultados para evitar confusão
+      compareDiffRows = [];
+      renderCompareTable();
+      updateCompareKpis();
+
+    }catch(err){
+      console.error(err);
+      alert('Falha ao ler o arquivo de comparação. Verifique se é um Excel válido.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function runCompare(){
+  if (!compareOldTickets.length || !compareNewTickets.length){
+    alert('Carregue o Excel velho e o Excel novo antes de comparar.');
+    return;
+  }
+
+  const oldMap = new Map(compareOldTickets.map(t => [String(t.numero).trim(), t]));
+  const newMap = new Map(compareNewTickets.map(t => [String(t.numero).trim(), t]));
+
+  const allNums = new Set([...oldMap.keys(), ...newMap.keys()]);
+  const diffs = [];
+
+  const fields = [
+    {key:'status', label:'Status'},
+    {key:'responsavel', label:'Responsável'},
+    {key:'categoria', label:'Categoria'},
+    {key:'priorizado', label:'Ticket priorizado'},
+    {key:'assunto', label:'Assunto'},
+    {key:'cliente', label:'Cliente'},
+    {key:'departamento', label:'Departamento'},
+    {key:'servico', label:'Serviço'},
+    {key:'abertoEm', label:'Aberto em'},
+    {key:'ultimaAcao', label:'Data da última ação'}
+  ];
+
+  allNums.forEach(num=>{
+    const o = oldMap.get(num);
+    const n = newMap.get(num);
+
+    if (o && !n){
+      diffs.push({numero:num, tipo:'REMOVIDO', campo:'—', antes:'Existe no velho', depois:'Não existe no novo'});
+      return;
+    }
+    if (!o && n){
+      diffs.push({numero:num, tipo:'NOVO', campo:'—', antes:'Não existe no velho', depois:'Existe no novo'});
+      return;
+    }
+
+    // ambos
+    fields.forEach(f=>{
+      const a = String(o[f.key] ?? '').trim();
+      const b = String(n[f.key] ?? '').trim();
+      if (a !== b){
+        diffs.push({numero:num, tipo:'ALTERADO', campo:f.label, antes:a || '—', depois:b || '—'});
+      }
+    });
+  });
+
+  // ordena: alterados primeiro, depois novos, depois removidos; e por número
+  const rank = {ALTERADO:0, NOVO:1, REMOVIDO:2};
+  compareDiffRows = diffs.sort((x,y)=>{
+    const rx = rank[x.tipo] ?? 9;
+    const ry = rank[y.tipo] ?? 9;
+    if (rx !== ry) return rx - ry;
+    return String(x.numero).localeCompare(String(y.numero), 'pt-BR', {numeric:true});
+  });
+
+  compareFilterMode = 'all';
+  updateCompareKpis();
+  renderCompareTable();
+  setupCompareTopTableScroll();
+}
+
+function updateCompareKpis(){
+  const added = compareDiffRows.filter(r => r.tipo === 'NOVO').length;
+  const removed = compareDiffRows.filter(r => r.tipo === 'REMOVIDO').length;
+  const changed = compareDiffRows.filter(r => r.tipo === 'ALTERADO').length;
+
+  $('cmpAdded').textContent = added;
+  $('cmpRemoved').textContent = removed;
+  $('cmpChanged').textContent = changed;
+
+  const total = new Set(compareDiffRows.map(r => r.numero)).size;
+  $('cmpTotal').textContent = total;
+
+  $('cmpKpiAll')?.classList.toggle('active', compareFilterMode === 'all');
+  $('cmpKpiChanged')?.classList.toggle('active', compareFilterMode === 'changed');
+}
+
+function setCompareFilter(mode){
+  compareFilterMode = mode || 'all';
+  updateCompareKpis();
+  renderCompareTable();
+  setupCompareTopTableScroll();
+}
+
+function renderCompareTable(){
+  const tbody = $('cmpTableBody');
+  if (!tbody) return;
+
+  const rows = (compareDiffRows || []);
+  const data = compareFilterMode === 'changed'
+    ? rows.filter(r => r.tipo === 'ALTERADO')
+    : rows;
+
+  if (!data.length){
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:26px; color:var(--muted);">Nenhuma diferença carregada. Clique em “Comparar”.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.slice(0, 2000).map(r=>{
+    const cls = r.tipo === 'ALTERADO' ? 'st-wait' : (r.tipo === 'NOVO' ? 'st-ok' : 'st-erro');
+    return `
+      <tr class="row" onclick="showTicketModal('${escapeJs(r.numero)}')">
+        <td><span class="tnum">#${escapeHtml(r.numero)}</span></td>
+        <td><span class="badge2 ${cls}">${escapeHtml(r.tipo)}</span></td>
+        <td>${escapeHtml(r.campo)}</td>
+        <td><div class="wrap2" title="${escapeHtml(r.antes)}">${escapeHtml(r.antes)}</div></td>
+        <td><div class="wrap2" title="${escapeHtml(r.depois)}">${escapeHtml(r.depois)}</div></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function setupCompareTopTableScroll(){
+  const wrap = $('cmpTableWrap');
+  const top = $('cmpTableXScrollTop');
+  const inner = $('cmpTableXScrollTopInner');
+  if (!wrap || !top || !inner) return;
+
+  const table = $('cmpTable');
+  if (!table) return;
+
+  inner.style.width = table.scrollWidth + 'px';
+  top.onscroll = ()=>{ wrap.scrollLeft = top.scrollLeft; };
+  wrap.onscroll = ()=>{ top.scrollLeft = wrap.scrollLeft; };
+  top.scrollLeft = wrap.scrollLeft || 0;
+}
+
+function exportCompareCSV(){
+  if (!compareDiffRows || !compareDiffRows.length){
+    alert('Nenhuma diferença para exportar.');
+    return;
+  }
+  const header = ['numero','tipo','campo','antes','depois'];
+  const lines = [header.join(';')].concat(compareDiffRows.map(r=>[
+    r.numero, r.tipo, r.campo,
+    String(r.antes||'').replaceAll(';',','),
+    String(r.depois||'').replaceAll(';',',')
+  ].join(';')));
+
+  const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `comparacao_tickets_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function init(){
   // default KPI selection
   $('kpiTotal').classList.add('active');
 
@@ -2516,7 +3174,9 @@ function escapeJs(str){
     if (lineChartInstance) lineChartInstance.resize();
     setupTopTableScroll();
   });
-})();
+}
+
+init();
 </script>
 
 </body>
