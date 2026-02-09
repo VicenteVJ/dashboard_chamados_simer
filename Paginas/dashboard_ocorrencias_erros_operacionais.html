@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,7 +16,8 @@
     <div class="top">
       <div class="title">
         <h1>Ocorrências — Foco em Erros Operacionais</h1>
-        <p>Carregue a planilha e acompanhe volume por <strong>Tipo de Ocorrência</strong> e <strong>Impacto</strong>. Inclui visualização da <strong>Validação/Observação TI</strong>.</p>
+        <p>Carregue a planilha e acompanhe volume por <strong>Tipo de Ocorrência</strong> e <strong>Impacto</strong>.
+          Inclui visualização da <strong>Validação/Observação TI</strong>.</p>
       </div>
 
       <div class="actions">
@@ -27,7 +29,8 @@
       </div>
     </div>
 
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)"/>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none"
+      onchange="handleFileUpload(event)" />
 
     <div class="panel">
       <div class="ph">
@@ -38,7 +41,8 @@
         <div class="filters">
           <div class="field">
             <label>Busca</label>
-            <input class="input" id="q" placeholder="Ticket / Título / Departamento / Responsável / Validação TI" oninput="applyDebounced()" />
+            <input class="input" id="q" placeholder="Ticket / Título / Departamento / Responsável / Validação TI"
+              oninput="applyDebounced()" />
           </div>
           <div class="field">
             <label>Tipo de Ocorrência</label>
@@ -112,11 +116,12 @@
           <div class="s">Ordenação: mais recentes primeiro (Data Abertura). Clique na linha para ver detalhe.</div>
         </div>
         <div class="pb">
-          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:12px; font-weight:800;">
+          <div
+            style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:12px; font-weight:800;">
             <span id="meta">Linhas: 0</span>
             <span id="meta2"></span>
           </div>
-          
+
           <div class="tablewrap" style="margin-top:10px;">
             <table>
               <thead>
@@ -133,11 +138,15 @@
                 </tr>
               </thead>
               <tbody id="tb">
-                <tr><td colspan="9" style="text-align:center; padding:26px; color:var(--muted);">Carregue um Excel para iniciar.</td></tr>
+                <tr>
+                  <td colspan="9" style="text-align:center; padding:26px; color:var(--muted);">Carregue um Excel para
+                    iniciar.</td>
+                </tr>
               </tbody>
             </table>
           </div>
-          <div class="footnote">Obs.: Colunas são encontradas por aproximação de nome (ex.: "Tipo de Ocorrência", "Pimpacto/Impacto", "Validação TI").</div>
+          <div class="footnote">Obs.: Colunas são encontradas por aproximação de nome (ex.: "Tipo de Ocorrência",
+            "Pimpacto/Impacto", "Validação TI").</div>
         </div>
       </div>
 
@@ -178,4 +187,5 @@
 
   <script src="/assets/js/erros_operacionais.js"></script>
 </body>
+
 </html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,34 +8,21 @@
   <title>Portal - Dashboards</title>
   <link rel="stylesheet" href="/assets/css/portal.css" />
 </head>
+
 <body>
 
   <header>
     <nav class="tablist" role="tablist" aria-label="Dashboards" data-tabs>
 
-      <button
-        type="button"
-        class="btn tab-btn"
-        role="tab"
-        aria-selected="false"
-        tabindex="-1"
-        data-tab="dashboard"
-        data-url="dashboard.html"
-      >
+      <button type="button" class="btn tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="dashboard"
+        data-url="dashboard.html">
         <i class="animation"></i>
         Dashboard Principal
         <i class="animation"></i>
       </button>
 
-      <button
-        type="button"
-        class="btn tab-btn"
-        role="tab"
-        aria-selected="false"
-        tabindex="-1"
-        data-tab="ocorrencias"
-        data-url="paginas/dashboard_ocorrencias_erros_operacionais.html"
-      >
+      <button type="button" class="btn tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="ocorrencias"
+        data-url="paginas/dashboard_ocorrencias_erros_operacionais.html">
         <i class="animation"></i>
         Ocorrências / Erros
         <i class="animation"></i>
@@ -44,14 +32,10 @@
   </header>
 
   <main class="main">
-    <iframe
-      id="frame"
-      title="Conteúdo do dashboard"
-      loading="lazy"
-      referrerpolicy="no-referrer"
-    ></iframe>
+    <iframe id="frame" title="Conteúdo do dashboard" loading="lazy" referrerpolicy="no-referrer"></iframe>
   </main>
 
   <script src="/assets/js/portal.js"></script>
 </body>
+
 </html>

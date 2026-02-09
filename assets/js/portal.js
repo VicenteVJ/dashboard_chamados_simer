@@ -27,7 +27,7 @@
   }
 
   function saveLastTab(tabId) {
-    try { localStorage.setItem(STORAGE_KEY, tabId); } catch (_) {}
+    try { localStorage.setItem(STORAGE_KEY, tabId); } catch (_) { }
   }
 
   function loadLastTab() {
