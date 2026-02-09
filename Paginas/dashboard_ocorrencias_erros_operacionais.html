@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Ocorrências - Erros Operacionais</title>
+
+  <!-- Excel parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="/assets/css/erros_operacionais.css">
+</head>
+
+<body>
+  <div class="wrap" id="app" data-theme="light">
+    <div class="top">
+      <div class="title">
+        <h1>Ocorrências — Foco em Erros Operacionais</h1>
+        <p>Carregue a planilha e acompanhe volume por <strong>Tipo de Ocorrência</strong> e <strong>Impacto</strong>. Inclui visualização da <strong>Validação/Observação TI</strong>.</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" onclick="triggerFile()">Carregar Excel</button>
+        <span class="fileTag" id="fileTag">Nenhum arquivo carregado</span>
+        <button class="btn" onclick="exportFiltered()">Exportar filtrado</button>
+        <button class="btn ghost" onclick="clearAll()">Limpar filtros</button>
+        <button class="btn" onclick="toggleTheme()">🌙/☀️ Tema</button>
+      </div>
+    </div>
+
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)"/>
+
+    <div class="panel">
+      <div class="ph">
+        <p class="t">Filtros</p>
+        <div class="s">Dica: clique em barras nos painéis à direita para filtrar rapidamente.</div>
+      </div>
+      <div class="pb">
+        <div class="filters">
+          <div class="field">
+            <label>Busca</label>
+            <input class="input" id="q" placeholder="Ticket / Título / Departamento / Responsável / Validação TI" oninput="applyDebounced()" />
+          </div>
+          <div class="field">
+            <label>Tipo de Ocorrência</label>
+            <select id="tipoOc" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Impacto</label>
+            <select id="impacto" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Status Atual</label>
+            <select id="statusAt" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Departamento</label>
+            <select id="dept" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Somente em aberto</label>
+            <select id="onlyOpen" onchange="applyFilters()">
+              <option value="">Não</option>
+              <option value="1">Sim</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chips" id="chips"></div>
+
+        <div class="kpis">
+          <div class="kpi active" id="kpiAll" onclick="setKpi('all')">
+            <div class="kl">Total</div>
+            <div class="kv" id="kAll">0</div>
+            <div class="ks"><span class="dot blue"></span><span>Base carregada</span></div>
+          </div>
+          <div class="kpi" id="kpiOpen" onclick="setKpi('open')">
+            <div class="kl">Abertos</div>
+            <div class="kv" id="kOpen">0</div>
+            <div class="ks"><span class="dot amber"></span><span>Requer acompanhamento</span></div>
+          </div>
+          <div class="kpi" id="kpiDone" onclick="setKpi('done')">
+            <div class="kl">Resolvidos/Fechados</div>
+            <div class="kv" id="kDone">0</div>
+            <div class="ks"><span class="dot green"></span><span>Encerrados</span></div>
+          </div>
+          <div class="kpi" id="kpiErrOp" onclick="setKpi('errop')">
+            <div class="kl">Erros operacionais</div>
+            <div class="kv" id="kErrOp">0</div>
+            <div class="ks"><span class="dot purple"></span><span>Tipo de ocorrência</span></div>
+          </div>
+          <div class="kpi" id="kpiHigh" onclick="setKpi('high')">
+            <div class="kl">Impacto alto/urgente</div>
+            <div class="kv" id="kHigh">0</div>
+            <div class="ks"><span class="dot red"></span><span>3-ALTA / 4-URGENTE</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="panel">
+        <div class="ph">
+          <p class="t">Lista de Ocorrências</p>
+          <div class="s">Ordenação: mais recentes primeiro (Data Abertura). Clique na linha para ver detalhe.</div>
+        </div>
+        <div class="pb">
+          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:12px; font-weight:800;">
+            <span id="meta">Linhas: 0</span>
+            <span id="meta2"></span>
+          </div>
+          
+          <div class="tablewrap" style="margin-top:10px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Data Abert.</th>
+                  <th>Departamento</th>
+                  <th>Responsável</th>
+                  <th>Tipo Ocorr.</th>
+                  <th>Impacto</th>
+                  <th>Status</th>
+                  <th>Título / Descrição</th>
+                  <th>Validação TI</th>
+                </tr>
+              </thead>
+              <tbody id="tb">
+                <tr><td colspan="9" style="text-align:center; padding:26px; color:var(--muted);">Carregue um Excel para iniciar.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="footnote">Obs.: Colunas são encontradas por aproximação de nome (ex.: "Tipo de Ocorrência", "Pimpacto/Impacto", "Validação TI").</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">
+          <p class="t">Distribuições</p>
+          <div class="s">Clique em um item para filtrar (toggle).</div>
+        </div>
+        <div class="pb">
+          <div style="font-weight:950; font-size:13px; margin-bottom:6px;">Top Tipo de Ocorrência</div>
+          <div class="barlist" id="chartTipo"></div>
+
+          <div style="font-weight:950; font-size:13px; margin:14px 0 6px;">Impacto</div>
+          <div class="barlist" id="chartImpacto"></div>
+
+          <div style="font-weight:950; font-size:13px; margin:14px 0 6px;">Status Atual</div>
+          <div class="barlist" id="chartStatus"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modalOverlay" id="mo" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modalHead">
+        <div class="modalTitle">
+          <p class="subject" id="mSubject">Ocorrência</p>
+          <div class="meta" id="mMeta"></div>
+        </div>
+        <button class="iconBtn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modalBody">
+        <div class="detailGrid" id="mGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/js/erros_operacionais.js"></script>
+</body>
+</html>

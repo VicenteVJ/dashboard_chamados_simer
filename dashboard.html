@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/icon.png">
+  <title>Dashboard de Chamados - Gestão</title>
+
+  <!-- Excel parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Charts (tooltips + interação) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- CSS separado -->
+  <link rel="stylesheet" href="/assets/css/ocorrencias.css">
+  
+</head>
+
+<body>
+  <div class="sidebarOverlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div>
+          <h1>Dashboard de Chamados</h1>
+          <p>Visão gerencial: volume, backlog, SLA (proxy), prioridade e tendência.</p>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="tab active" id="tabDashboard" onclick="showPage('dashboard')">Painel</button>
+        <button class="tab" id="tabDiretoria" onclick="showPage('diretoria')">Diretoria</button>
+        <button class="tab" id="tabCompare" onclick="showPage('compare')">Comparar Excel</button>
+        <button class="tab" id="tabTicket" onclick="showPage('ticket')">Ticket</button>
+      </div>
+
+      <div class="side-section">
+        <h3>Resumo Operacional <span class="pill" id="sideBase">0</span></h3>
+        <div class="mini-kpis">
+          <div class="mini" role="button" onclick="setKPIFilter('open')">
+            <div class="label">Em aberto</div>
+            <div class="value" id="sideOpen">0</div>
+            <div class="hint">Cobranca diária</div>
+          </div>
+          <div class="mini" role="button" onclick="setKPIFilter('awaiting')">
+            <div class="label">Aguardando retorno</div>
+            <div class="value" id="sideAwait">0</div>
+            <div class="hint">Dependência externa</div>
+          </div>
+          <div class="mini" role="button" onclick="setKPIFilter('prioritized')">
+            <div class="label">Priorizados</div>
+            <div class="value" id="sidePrio">0</div>
+            <div class="hint">Risco elevado</div>
+          </div>
+          <div class="mini" role="button" onclick="setKPIFilter('overdue')">
+            <div class="label">Fora do prazo</div>
+            <div class="value" id="sideOverdue">0</div>
+            <div class="hint">&gt; 7 dias (proxy SLA)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-section">
+        <h3>Priorizados (abertos) <span class="pill" id="sidePrioListCount">0</span></h3>
+        <ul class="ticket-mini-list" id="prioList"></ul>
+      </div>
+
+      <div class="side-section">
+        <h3>Aguardando retorno <span class="pill" id="sideAwaitListCount">0</span></h3>
+        <ul class="ticket-mini-list" id="awaitList"></ul>
+      </div>
+
+      <div class="cache" id="cacheInfo">
+        Fonte: <strong id="cacheFile">nenhum arquivo carregado</strong><br/>
+        Registros: <strong id="cacheCount">0</strong>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- Mobile top -->
+      <div class="mobileTop">
+        <button class="hamb" onclick="openSidebar()">☰</button>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:950; font-size:14px;">Dashboard de Chamados</div>
+          <div style="font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="mobileFile">nenhum arquivo carregado</div>
+        </div>
+        <button class="btn" id="themeBtnMobile" onclick="toggleTheme()">🌙 Tema</button>
+        <button class="btn primary" onclick="triggerFile()">Carregar Excel</button>
+      
+        <button class="btn danger" onclick="removeExcel(false)" title="Remover Excel">🗑️</button>
+        <button class="btn" onclick="removeExcel(true)" title="Trocar Excel">🔁</button>
+</div>
+
+      <!-- Desktop top -->
+      <div class="topbar">
+        <div class="titleblock">
+          <h2>Tickets ERP Simer</h2>
+          <div class="sub">Foco em gestão: backlog, criticidade (priorizado), tickets aguardando retorno e tendência mensal com detalhamento.</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="themeBtn" onclick="toggleTheme()">🌙 Tema</button>
+          <button class="btn primary" onclick="triggerFile()">Carregar Excel</button>
+          <span class="file-label" id="fileLabel">Nenhum arquivo carregado</span>
+          
+          <button class="btn danger" onclick="removeExcel(false)">Remover Excel</button>
+          <button class="btn" onclick="removeExcel(true)">Trocar Excel</button>
+<button class="btn" onclick="exportFiltered()">Exportar base filtrada</button>
+          <button class="btn ghost" onclick="clearAllFilters()">Limpar filtros</button>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)" />
+
+      <!-- Pages -->
+      <section id="pageDashboard">
+        <div class="filters">
+          <div class="field">
+            <label>Busca</label>
+            <input class="input" id="searchInput" placeholder="Pesquisar (Número / Assunto / Solicitante / Cliente / Serviço)" oninput="applyFiltersDebounced()" />
+          </div>
+
+          <div class="field">
+            <label>Status (multi)</label>
+            <div class="ms" id="statusMS">
+              <div class="ms-btn" onclick="toggleMS('statusMS')">
+                <div class="ms-value" id="statusMSValue">Todos</div>
+                <div class="ms-caret">▾</div>
+              </div>
+              <div class="ms-menu" id="statusMSMenu"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Departamento</label>
+            <select id="departmentFilter" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Cliente (Pessoa)</label>
+            <select id="clientFilter" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+
+          <div class="field">
+            <label>Categoria</label>
+            <select id="categoryFilter" onchange="applyFilters()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Prioridade</label>
+            <select id="priorityFilter" onchange="applyFilters()">
+              <option value="">Todos</option>
+              <option value="Sim">Somente priorizados</option>
+              <option value="Nao">Somente não priorizados</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Ano</label>
+            <select id="yearFilter" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Mês</label>
+            <select id="monthFilter" onchange="applyFilters()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label style="display:flex; align-items:center; gap:10px;">
+              <span>Somente em aberto</span>
+            </label>
+            <select id="onlyOpen" onchange="applyFilters()">
+              <option value="">Não</option>
+              <option value="1">Sim</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chips" id="activeChips"></div>
+
+        <div class="kpis">
+          <div class="kpi" id="kpiTotal" onclick="setKPIFilter('all')">
+            <div class="k-label">Total (base filtrável)</div>
+            <div class="k-value" id="kTotal">0</div>
+            <div class="k-sub"><span class="dot blue"></span><span id="kTotalHint">Base carregada</span></div>
+          </div>
+
+          <div class="kpi" id="kpiOpen" onclick="setKPIFilter('open')">
+            <div class="k-label">Em aberto</div>
+            <div class="k-value" id="kOpen">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Exige cobrança</span></div>
+          </div>
+
+          <div class="kpi" id="kpiAwait" onclick="setKPIFilter('awaiting')">
+            <div class="k-label">Aguardando retorno</div>
+            <div class="k-value" id="kAwait">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Fila externa</span></div>
+          </div>
+
+          <div class="kpi" id="kpiPrio" onclick="setKPIFilter('prioritized')">
+            <div class="k-label">Priorizados (abertos)</div>
+            <div class="k-value" id="kPrio">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Risco/impacto</span></div>
+          </div>
+
+          <div class="kpi" id="kpiSLA" onclick="setKPIFilter('overdue')">
+            <div class="k-label">Fora do prazo (proxy)</div>
+            <div class="k-value" id="kOverdue">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>+7 dias em aberto</span></div>
+          </div>
+
+          <div class="kpi" id="kpiResolved" onclick="setKPIFilter('resolved')">
+            <div class="k-label">Fechados / Resolvidos</div>
+            <div class="k-value" id="kResolved">0</div>
+            <div class="k-sub"><span class="dot green"></span><span>% resolvido: <strong id="kResolvedPct">0%</strong></span></div>
+          </div>
+        </div>
+
+        <div class="kpis" style="margin-top:10px;">
+          <div class="kpi" id="kpiCatProblema" onclick="quickCategory('problema')">
+            <div class="k-label">Categoria: Problema (abertos)</div>
+            <div class="k-value" id="kCatProblema">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Filtra por “Problema”</span></div>
+          </div>
+
+          <div class="kpi" id="kpiCatAdeqDuvida" onclick="quickCategory('adeq_duvida')">
+            <div class="k-label">Categoria: Adequação/Dúvida (abertos)</div>
+            <div class="k-value" id="kCatAdeqDuvida">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Filtra por adequação + dúvidas</span></div>
+          </div>
+
+          <div class="kpi" id="kpiCatAll" onclick="quickCategory('all')">
+            <div class="k-label">Categoria: limpar filtro</div>
+            <div class="k-value">×</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Remove o filtro de categoria</span></div>
+          </div>
+        </div>
+
+        <div class="agingWrap">
+          <div class="agingHead">
+            <div class="agingTitle">⏱️ Aging de Tickets Abertos <span class="agingSub">(dias sem resolução)</span></div>
+            <div class="agingHint">Clique em um bloco para filtrar (toggle).</div>
+          </div>
+          <div class="aging" id="agingCards">
+            <div class="agingCard" data-bucket="0-3" onclick="setAging('0-3')">
+              <div class="agingNum" id="aging03">0</div>
+              <div class="agingLbl">0–3 dias</div>
+            </div>
+            <div class="agingCard" data-bucket="4-7" onclick="setAging('4-7')">
+              <div class="agingNum" id="aging47">0</div>
+              <div class="agingLbl">4–7 dias</div>
+            </div>
+            <div class="agingCard" data-bucket="8-15" onclick="setAging('8-15')">
+              <div class="agingNum" id="aging815">0</div>
+              <div class="agingLbl">8–15 dias</div>
+            </div>
+            <div class="agingCard" data-bucket="15+" onclick="setAging('15+')">
+              <div class="agingNum" id="aging15">0</div>
+              <div class="agingLbl">+15 dias</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <!-- Left / Table -->
+          <div class="panel">
+            <div class="ph">
+              <div class="t">Detalhamento</div>
+              <div class="s">Clique em um ticket para abrir o detalhe. Ordenação: maior risco primeiro (prioridade + tempo em aberto).</div>
+            </div>
+            <div class="pb">
+              <div class="small" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <span id="tableMeta">Linhas: 0</span>
+                <span id="filterMeta"></span>
+              </div>
+
+              <div class="tablewrapTop" style="margin-top:10px;">
+                <div class="xscroll" id="tableXScrollTop"><div class="xscrollInner" id="tableXScrollTopInner"></div></div>
+                <div class="tablewrap" id="tableWrap">
+                <table id="ticketTable">
+                  <thead>
+                    <tr>
+                      <th>Número</th>
+                      <th>Aberto em</th>
+                      <th>Departamento</th>
+                      <th>Solicitante</th>
+                      <th>Cliente</th>
+                      <th>Serviço</th>
+                      <th>Assunto</th>
+                      <th>Status</th>
+                      <th>Última ação</th>
+                      <th>Prior.</th>
+                      <th>Responsável</th>
+                      <th>Tempo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ticketTableBody">
+                    <tr><td colspan="12" style="text-align:center; padding:26px; color:var(--muted);">Carregue um arquivo Excel para iniciar.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+              </div>
+          </div>
+
+          <!-- Right / Charts stack -->
+          <div class="rightStack">
+            <div class="panel chartBox">
+              <div class="ph">
+                <div class="t">Evolução de Tickets por Mês</div>
+                <div class="s">Passe o mouse para ver valores. Clique em um ponto para filtrar o mês.</div>
+              </div>
+              <div class="pb">
+                <canvas id="lineChart" height="180"></canvas>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="ph">
+                <div class="t">Tickets por Departamento</div>
+                <div class="s">Clique em uma barra para filtrar</div>
+              </div>
+              <div class="pb">
+                <div class="barlist" id="departmentChart"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="ph">
+                <div class="t">Tickets por Status</div>
+                <div class="s">Clique em um status para aplicar filtro (multi)</div>
+              </div>
+              <div class="pb">
+                <div class="barlist" id="statusChart"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="ph">
+                <div class="t">Tickets por Categoria</div>
+                <div class="s">Clique para filtrar</div>
+              </div>
+              <div class="pb">
+                <div class="barlist" id="categoryChart"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="ph">
+                <div class="t">Top 8 Clientes (Abertos)</div>
+                <div class="s">Quem mais gera demanda em aberto</div>
+              </div>
+              <div class="pb">
+                <div class="barlist" id="clientOpenChart"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ticket Page -->
+      <section id="pageTicket" class="ticketPage">
+        <div class="ticketHero">
+          <h3>Consulta de Ticket (isolado)</h3>
+          <p>Digite o número do ticket para visualizar o detalhe. Esta tela não replica os painéis (foco em auditoria e follow-up).</p>
+
+          <div class="ticketSearchRow">
+            <input class="input" id="ticketSearchInput" placeholder="Ex: 714539" />
+            <button class="btn primary" onclick="searchTicket()">Buscar</button>
+          </div>
+
+          <div class="chips" style="margin-top:10px;">
+            <span class="chip" onclick="showPage('dashboard')"><span class="x">←</span> Voltar ao Painel</span>
+          </div>
+        </div>
+
+        <div class="panel ticketDetail" id="ticketDetailPanel">
+          <div class="ph">
+            <div class="t" id="ticketDetailTitle">Ticket</div>
+            <div class="s" id="ticketDetailSubtitle"></div>
+          </div>
+          <div class="pb">
+            <div class="detailGrid" id="ticketDetailGrid"></div>
+          </div>
+        </div>
+      </section>
+    
+      <!-- Diretoria Page -->
+      <section id="pageDiretoria" style="display:none;">
+        <div class="ticketHero">
+          <h3>Visão da Diretoria (classificação por categoria)</h3>
+          <p>Foco em <strong>Problemas</strong> vs <strong>Adequação/Dúvida</strong>. Use os cards para filtrar rapidamente os tickets em aberto.</p>
+
+          <div class="chips" style="margin-top:10px; gap:10px;">
+            <span class="chip" id="dirChipAll" onclick="setDiretoriaView('all')"><span class="x">✓</span> Todos</span>
+            <span class="chip" id="dirChipProblema" onclick="setDiretoriaView('problema')"><span class="x">!</span> Problema</span>
+            <span class="chip" id="dirChipAdeqDuvida" onclick="setDiretoriaView('adeq_duvida')"><span class="x">≋</span> Adequação / Dúvida</span>
+            <span class="chip" onclick="showPage('dashboard')"><span class="x">←</span> Voltar ao Painel</span>
+          </div>
+        </div>
+
+        <div class="kpis" style="margin-top:12px;">
+          <div class="kpi" onclick="setDiretoriaView('problema')" id="dirKpiProblema">
+            <div class="k-label">Problemas (abertos)</div>
+            <div class="k-value" id="dirProblema">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Incidentes / falhas</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('adeq_duvida')" id="dirKpiAdeq">
+            <div class="k-label">Adequação + Dúvida (abertos)</div>
+            <div class="k-value" id="dirAdeqDuvida">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Ajustes, regras, esclarecimentos</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiTotal">
+            <div class="k-label">Total em aberto</div>
+            <div class="k-value" id="dirOpenTotal">0</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Base atual (respeita filtros do Painel)</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('problema')" id="dirKpiOverdue">
+            <div class="k-label">Problemas fora do prazo</div>
+            <div class="k-value" id="dirProblemaOverdue">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>+7 dias em aberto</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiPrio">
+            <div class="k-label">Priorizados (abertos)</div>
+            <div class="k-value" id="dirPrioOpen">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Risco/impacto</span></div>
+          </div>
+
+          <div class="kpi" onclick="setDiretoriaView('all')" id="dirKpiAwait">
+            <div class="k-label">Aguardando retorno (abertos)</div>
+            <div class="k-value" id="dirAwaitOpen">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Dependência externa</span></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="ph">
+            <div class="t">Detalhamento (Diretoria)</div>
+            <div class="s">Ordenação: <strong>priorizados</strong> primeiro, depois <strong>mais antigos</strong> (SLA por data de abertura).</div>
+          </div>
+          <div class="pb">
+            <div class="small" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <span id="dirTableMeta">Linhas: 0</span>
+              <span id="dirTableFilterMeta"></span>
+            </div>
+
+            <div class="tablewrapTop" style="margin-top:10px;">
+              <div class="xscroll" id="dirTableXScrollTop"><div class="xscrollInner" id="dirTableXScrollTopInner"></div></div>
+              <div class="tablewrap" id="dirTableWrap">
+                <table id="dirTicketTable">
+                  <thead>
+                    <tr>
+                      <th>Número</th>
+                      <th>Aberto em</th>
+                      <th>Categoria</th>
+                      <th>Departamento</th>
+                      <th>Cliente</th>
+                      <th>Assunto</th>
+                      <th>Status</th>
+                      <th>Responsável</th>
+                      <th>Prior.</th>
+                      <th>Tempo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dirTicketTableBody">
+                    <tr><td colspan="10" style="text-align:center; padding:26px; color:var(--muted);">Carregue um Excel e aplique filtros no Painel para começar.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Comparar Excel Page -->
+      <section id="pageCompare" style="display:none;">
+        <div class="ticketHero">
+          <h3>Comparar Excel (antigo vs novo)</h3>
+          <p>Carregue dois arquivos (antes/depois) para identificar <strong>novos tickets</strong>, <strong>tickets removidos</strong> e <strong>alterações</strong> (status, responsável, categoria, prioridade, assunto, cliente, datas).</p>
+
+          <div class="ticketSearchRow" style="grid-template-columns: 1fr 1fr auto; margin-top:12px;">
+            <button class="btn" onclick="triggerCompareOld()">📎 Excel velho</button>
+            <button class="btn" onclick="triggerCompareNew()">📎 Excel novo</button>
+            <button class="btn primary" onclick="runCompare()">Comparar</button>
+          </div>
+
+          <div class="small" style="margin-top:10px; display:flex; gap:12px; flex-wrap:wrap;">
+            <span>Velho: <strong id="cmpOldName">—</strong></span>
+            <span>Novo: <strong id="cmpNewName">—</strong></span>
+          </div>
+
+          <div class="chips" style="margin-top:10px;">
+            <span class="chip" onclick="exportCompareCSV()"><span class="x">↓</span> Exportar alterações (CSV)</span>
+            <span class="chip" onclick="showPage('dashboard')"><span class="x">←</span> Voltar ao Painel</span>
+          </div>
+
+          <input type="file" id="compareOldInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCompareFile(event,'old')" />
+          <input type="file" id="compareNewInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCompareFile(event,'new')" />
+        </div>
+
+        <div class="kpis" style="margin-top:12px;">
+          <div class="kpi">
+            <div class="k-label">Novos tickets</div>
+            <div class="k-value" id="cmpAdded">0</div>
+            <div class="k-sub"><span class="dot green"></span><span>Existe só no novo</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Tickets removidos</div>
+            <div class="k-value" id="cmpRemoved">0</div>
+            <div class="k-sub"><span class="dot red"></span><span>Existe só no velho</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Tickets alterados</div>
+            <div class="k-value" id="cmpChanged">0</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Mesmo número, campos mudaram</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Total comparado</div>
+            <div class="k-value" id="cmpTotal">0</div>
+            <div class="k-sub"><span class="dot blue"></span><span>União (velho ∪ novo)</span></div>
+          </div>
+          <div class="kpi" onclick="setCompareFilter('changed')" id="cmpKpiChanged">
+            <div class="k-label">Ver somente alterados</div>
+            <div class="k-value">⇄</div>
+            <div class="k-sub"><span class="dot amber"></span><span>Filtro</span></div>
+          </div>
+          <div class="kpi" onclick="setCompareFilter('all')" id="cmpKpiAll">
+            <div class="k-label">Ver tudo</div>
+            <div class="k-value">∞</div>
+            <div class="k-sub"><span class="dot blue"></span><span>Filtro</span></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="ph">
+            <div class="t">Alterações detectadas</div>
+            <div class="s">Clique em uma linha para abrir o detalhe do ticket (modal).</div>
+          </div>
+          <div class="pb">
+            <div class="tablewrapTop" style="margin-top:10px;">
+              <div class="xscroll" id="cmpTableXScrollTop"><div class="xscrollInner" id="cmpTableXScrollTopInner"></div></div>
+              <div class="tablewrap" id="cmpTableWrap">
+                <table id="cmpTable">
+                  <thead>
+                    <tr>
+                      <th>Número</th>
+                      <th>Tipo</th>
+                      <th>Campo</th>
+                      <th>Antes</th>
+                      <th>Depois</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cmpTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding:26px; color:var(--muted);">Carregue dois arquivos e clique em “Comparar”.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+</main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modalOverlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modalHead">
+        <div class="modalTitle">
+          <p class="subject" id="modalSubject">Assunto</p>
+          <div class="meta" id="modalMeta"></div>
+        </div>
+        <button class="iconBtn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modalBody">
+        <div class="detailGrid" id="modalDetailGrid"></div>
+      </div>
+      <div class="modalFoot">
+        <button class="btn" onclick="copyTicket()">Copiar resumo</button>
+        <button class="btn primary" onclick="openTicketPageFromModal()">Abrir na aba Ticket</button>
+      </div>
+    </div>
+  </div>
+
+
+<!-- JS separado (carrega por último) -->
+  <script src="/assets/js/ocorrencias.js"></script>
+</body>
+</html>
