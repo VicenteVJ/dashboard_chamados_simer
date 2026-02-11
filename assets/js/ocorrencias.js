@@ -787,25 +787,31 @@ function renderTable() {
     return;
   }
 
+  // Ordenação (gerencial):
+  // 1) Abertos antes de fechados
+  // 2) Priorizados (abertos) antes
+  // 3) Mais recentes no topo (data de abertura; fallback última ação)
+  // 4) Desempate por número (desc)
   const data = [...filteredTickets].sort((a, b) => {
     const aClosed = isClosedStatus(a.status);
     const bClosed = isClosedStatus(b.status);
-
     if (aClosed !== bClosed) return aClosed ? 1 : -1;
 
     const aPrio = (!aClosed && String(a.priorizado).toLowerCase() === 'sim') ? 1 : 0;
     const bPrio = (!bClosed && String(b.priorizado).toLowerCase() === 'sim') ? 1 : 0;
     if (aPrio !== bPrio) return bPrio - aPrio;
 
-    if (!aClosed && !bClosed) {
-      const ad = daysOpen(a) ?? -1;
-      const bd = daysOpen(b) ?? -1;
-      if (ad !== bd) return bd - ad;
-    }
+    const aOpen = parseDate(a.abertoEm)?.getTime() ?? 0;
+    const bOpen = parseDate(b.abertoEm)?.getTime() ?? 0;
+    if (aOpen !== bOpen) return bOpen - aOpen;
 
-    const aKey = parseDate(a.ultimaAcao)?.getTime() ?? parseDate(a.abertoEm)?.getTime() ?? 0;
-    const bKey = parseDate(b.ultimaAcao)?.getTime() ?? parseDate(b.abertoEm)?.getTime() ?? 0;
-    return bKey - aKey;
+    const aKey = parseDate(a.ultimaAcao)?.getTime() ?? 0;
+    const bKey = parseDate(b.ultimaAcao)?.getTime() ?? 0;
+    if (aKey !== bKey) return bKey - aKey;
+
+    const an = Number(String(a.numero).replace(/\D/g, '')) || 0;
+    const bn = Number(String(b.numero).replace(/\D/g, '')) || 0;
+    return bn - an;
   }).slice(0, 800);
 
   tbody.innerHTML = data.map(t => {
@@ -903,16 +909,23 @@ function renderDiretoriaTable(list) {
     return;
   }
 
+  // Ordenação (visão diretoria): priorizados primeiro e mais recentes no topo
   const data = [...list].sort((a, b) => {
     const aPrio = String(a.priorizado).toLowerCase() === 'sim' ? 1 : 0;
     const bPrio = String(b.priorizado).toLowerCase() === 'sim' ? 1 : 0;
     if (aPrio !== bPrio) return bPrio - aPrio;
-    const ad = daysOpen(a) ?? -1;
-    const bd = daysOpen(b) ?? -1;
-    if (ad !== bd) return bd - ad;
-    const aKey = parseDate(a.ultimaAcao)?.getTime() ?? parseDate(a.abertoEm)?.getTime() ?? 0;
-    const bKey = parseDate(b.ultimaAcao)?.getTime() ?? parseDate(b.abertoEm)?.getTime() ?? 0;
-    return bKey - aKey;
+
+    const aOpen = parseDate(a.abertoEm)?.getTime() ?? 0;
+    const bOpen = parseDate(b.abertoEm)?.getTime() ?? 0;
+    if (aOpen !== bOpen) return bOpen - aOpen;
+
+    const aKey = parseDate(a.ultimaAcao)?.getTime() ?? 0;
+    const bKey = parseDate(b.ultimaAcao)?.getTime() ?? 0;
+    if (aKey !== bKey) return bKey - aKey;
+
+    const an = Number(String(a.numero).replace(/\D/g, '')) || 0;
+    const bn = Number(String(b.numero).replace(/\D/g, '')) || 0;
+    return bn - an;
   }).slice(0, 800);
 
   tbody.innerHTML = data.map(t => {
