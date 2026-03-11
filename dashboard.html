@@ -636,6 +636,29 @@
 
   <!-- JS separado (carrega por último) -->
   <script src="/assets/js/ocorrencias.js"></script>
+
+  <!-- BLOQUEIO BÁSICO -->
+  <script>
+    document.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      const key = (e.key || '').toLowerCase();
+
+      if (key === 'f12') {
+        e.preventDefault();
+      }
+
+      if (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) {
+        e.preventDefault();
+      }
+
+      if (e.ctrlKey && ['u', 's'].includes(key)) {
+        e.preventDefault();
+      }
+    });
+  </script>
 </body>
 
 </html>
