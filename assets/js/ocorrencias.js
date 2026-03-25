@@ -9,6 +9,28 @@ let allTickets = [];
 let filteredTickets = [];
 let activeKPI = 'all';
 
+async function fetchJsonWithFallback(urlFn, urlLocal, options) {
+  // No Netlify: "/.netlify/functions/*"
+  // No ambiente local (Express): "/api/*"
+  const candidates = [urlFn, urlLocal];
+  let lastStatus = null;
+
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, options);
+      lastStatus = r.status;
+      if (r.status === 404) continue;
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(payload?.error || payload?.detail || `HTTP ${r.status}`);
+      return payload;
+    } catch (err) {
+      // tenta o próximo endpoint
+    }
+  }
+
+  throw new Error(`Falha ao carregar dados (status: ${lastStatus ?? 'desconhecido'}).`);
+}
+
 let statusSelected = new Set();
 let lineChartInstance = null;
 
@@ -35,7 +57,7 @@ let compareNewMap = new Map(); // numero -> ticket novo
 
 function removeExcel(openAfter) {
   // Remove apenas do backend; o resto é reset de UI.
-  fetch('/api/clear/tickets', { method: 'POST' })
+  fetchJsonWithFallback('/.netlify/functions/clear-tickets', '/api/clear/tickets', { method: 'POST' })
     .catch(() => { /* ignore */ });
   allTickets = [];
   filteredTickets = [];
@@ -124,18 +146,11 @@ function handleFileUpload(event) {
   fd.append('file', file);
   fd.append('persist', '1');
 
-  fetch('/api/parse/tickets', { method: 'POST', body: fd })
-    .then(async (r) => {
-      const payload = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const parts = [];
-        if (payload?.error) parts.push(String(payload.error));
-        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
-        if (payload?.hint) parts.push(String(payload.hint));
-        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
-      }
-      return payload;
-    })
+  fetchJsonWithFallback(
+    '/.netlify/functions/parse-tickets',
+    '/api/parse/tickets',
+    { method: 'POST', body: fd }
+  )
     .then((payload) => {
       allTickets = Array.isArray(payload?.data) ? payload.data : [];
       setFileLabel(payload?.fileName || file.name, allTickets.length);
@@ -1503,18 +1518,11 @@ function handleCompareFile(event, which) {
   // Não sobrescreve o dataset principal; é apenas para comparação na UI.
   fd.append('persist', '0');
 
-  fetch('/api/parse/tickets', { method: 'POST', body: fd })
-    .then(async (r) => {
-      const payload = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const parts = [];
-        if (payload?.error) parts.push(String(payload.error));
-        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
-        if (payload?.hint) parts.push(String(payload.hint));
-        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
-      }
-      return payload;
-    })
+  fetchJsonWithFallback(
+    '/.netlify/functions/parse-tickets',
+    '/api/parse/tickets',
+    { method: 'POST', body: fd }
+  )
     .then((payload) => {
       const tickets = Array.isArray(payload?.data) ? payload.data : [];
 
@@ -1782,12 +1790,7 @@ function init() {
   // carrega dados persistidos no backend (SQLite)
   $('cacheFile').textContent = 'nenhum arquivo carregado';
   $('cacheCount').textContent = '0';
-  fetch('/api/data/tickets')
-    .then(async (r) => {
-      const payload = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(payload?.error || 'Falha ao carregar dados.');
-      return payload;
-    })
+  fetchJsonWithFallback('/.netlify/functions/data-tickets', '/api/data/tickets', { method: 'GET' })
     .then((payload) => {
       const data = Array.isArray(payload?.data) ? payload.data : [];
       if (!data.length) return;

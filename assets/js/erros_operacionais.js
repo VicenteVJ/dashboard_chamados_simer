@@ -2,6 +2,26 @@ let all = [];
 let filtered = [];
 let activeKpi = 'all';
 
+async function fetchJsonWithFallback(urlFn, urlLocal, options) {
+  const candidates = [urlFn, urlLocal];
+  let lastStatus = null;
+
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, options);
+      lastStatus = r.status;
+      if (r.status === 404) continue;
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(payload?.error || payload?.detail || payload?.hint || `HTTP ${r.status}`);
+      return payload;
+    } catch (_) {
+      // tenta o próximo
+    }
+  }
+
+  throw new Error(`Falha ao acessar endpoint (status: ${lastStatus ?? 'desconhecido'}).`);
+}
+
 // Funções utilitárias importadas de utils.js
 
 function toggleTheme() {
@@ -82,18 +102,11 @@ function handleFileUpload(event) {
   fd.append('file', file);
   fd.append('persist', '1');
 
-  fetch('/api/parse/ocorrencias', { method: 'POST', body: fd })
-    .then(async (r) => {
-      const payload = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const parts = [];
-        if (payload?.error) parts.push(String(payload.error));
-        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
-        if (payload?.hint) parts.push(String(payload.hint));
-        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
-      }
-      return payload;
-    })
+  fetchJsonWithFallback(
+    '/.netlify/functions/parse-ocorrencias',
+    '/api/parse/ocorrencias',
+    { method: 'POST', body: fd }
+  )
     .then((payload) => {
       all = Array.isArray(payload?.data) ? payload.data : [];
       $('fileTag').textContent = `${payload?.fileName || file.name} • ${all.length} linhas`;
@@ -422,9 +435,7 @@ function escJs(str) {
 (async function init() {
   $('fileTag').textContent = 'nenhum arquivo carregado';
   try {
-    const r = await fetch('/api/data/ocorrencias', { method: 'GET' });
-    const payload = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(payload?.error || 'Falha ao carregar dados.');
+    const payload = await fetchJsonWithFallback('/.netlify/functions/data-ocorrencias', '/api/data/ocorrencias', { method: 'GET' });
 
     const data = Array.isArray(payload?.data) ? payload.data : [];
     if (!data.length) return;

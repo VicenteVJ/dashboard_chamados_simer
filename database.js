@@ -1,7 +1,9 @@
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const DB_PATH = path.join(__dirname, 'database.db');
+// Em server normal, process.cwd() costuma ser o root do projeto.
+// Em Netlify Functions, isso também ajuda a manter o arquivo `database.db` no root.
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'database.db');
 
 // better-sqlite3 cria o arquivo automaticamente se não existir.
 const db = new Database(DB_PATH);
