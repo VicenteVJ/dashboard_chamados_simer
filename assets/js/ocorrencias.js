@@ -34,7 +34,9 @@ let compareNewMap = new Map(); // numero -> ticket novo
 // Funções $, triggerFile movidas para utils.js
 
 function removeExcel(openAfter) {
-  try { localStorage.removeItem('tickets_cache_v2'); } catch (_) { }
+  // Remove apenas do backend; o resto é reset de UI.
+  fetch('/api/clear/tickets', { method: 'POST' })
+    .catch(() => { /* ignore */ });
   allTickets = [];
   filteredTickets = [];
   $('fileLabel').textContent = 'Nenhum arquivo carregado';
@@ -120,6 +122,7 @@ function handleFileUpload(event) {
 
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('persist', '1');
 
   fetch('/api/parse/tickets', { method: 'POST', body: fd })
     .then(async (r) => {
@@ -135,7 +138,6 @@ function handleFileUpload(event) {
     })
     .then((payload) => {
       allTickets = Array.isArray(payload?.data) ? payload.data : [];
-      saveCache(payload?.fileName || file.name, allTickets);
       setFileLabel(payload?.fileName || file.name, allTickets.length);
       buildFilterOptions();
       buildStatusMultiSelect();
@@ -153,24 +155,6 @@ function setFileLabel(name, count) {
   $('mobileFile').textContent = name;
   $('cacheFile').textContent = name;
   $('cacheCount').textContent = String(count || 0);
-}
-
-function saveCache(fileName, data) {
-  try {
-    localStorage.setItem('tickets_cache_v2', JSON.stringify({ fileName, data, ts: Date.now() }));
-  } catch (_) { }
-}
-
-function loadCache() {
-  try {
-    const raw = localStorage.getItem('tickets_cache_v2');
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj?.data || !Array.isArray(obj.data)) return null;
-    return obj;
-  } catch (_) {
-    return null;
-  }
 }
 
 /* ---------------------------
@@ -1516,6 +1500,8 @@ function handleCompareFile(event, which) {
 
   const fd = new FormData();
   fd.append('file', file);
+  // Não sobrescreve o dataset principal; é apenas para comparação na UI.
+  fd.append('persist', '0');
 
   fetch('/api/parse/tickets', { method: 'POST', body: fd })
     .then(async (r) => {
@@ -1793,20 +1779,31 @@ function init() {
   // tema
   setTheme(loadTheme());
 
-  // load cache if exists
-  const cache = loadCache();
-  if (cache?.data?.length) {
-    allTickets = cache.data;
-    setFileLabel(cache.fileName || 'cache', allTickets.length);
-    buildFilterOptions();
-    buildStatusMultiSelect();
-    clearAllFilters(false);
-    updateEverything();
-    setupTopTableScroll();
-  } else {
-    $('cacheFile').textContent = 'nenhum arquivo carregado';
-    $('cacheCount').textContent = '0';
-  }
+  // carrega dados persistidos no backend (SQLite)
+  $('cacheFile').textContent = 'nenhum arquivo carregado';
+  $('cacheCount').textContent = '0';
+  fetch('/api/data/tickets')
+    .then(async (r) => {
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(payload?.error || 'Falha ao carregar dados.');
+      return payload;
+    })
+    .then((payload) => {
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+      if (!data.length) return;
+      allTickets = data;
+      setFileLabel(payload?.fileName || 'cache', allTickets.length);
+      buildFilterOptions();
+      buildStatusMultiSelect();
+      clearAllFilters(false);
+      updateEverything();
+      setupTopTableScroll();
+    })
+    .catch((err) => {
+      console.error(err);
+      $('cacheFile').textContent = 'nenhum arquivo carregado';
+      $('cacheCount').textContent = '0';
+    });
 
   window.addEventListener('resize', () => {
     if (lineChartInstance) lineChartInstance.resize();

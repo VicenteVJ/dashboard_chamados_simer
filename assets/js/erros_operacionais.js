@@ -80,6 +80,7 @@ function handleFileUpload(event) {
 
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('persist', '1');
 
   fetch('/api/parse/ocorrencias', { method: 'POST', body: fd })
     .then(async (r) => {
@@ -95,7 +96,6 @@ function handleFileUpload(event) {
     })
     .then((payload) => {
       all = Array.isArray(payload?.data) ? payload.data : [];
-      cacheSave(payload?.fileName || file.name, all);
       $('fileTag').textContent = `${payload?.fileName || file.name} • ${all.length} linhas`;
       buildOptions();
       clearAll(false);
@@ -405,20 +405,6 @@ function exportFiltered() {
   XLSX.writeFile(wb, `ocorrencias_filtradas_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
-// Cache
-function cacheSave(fileName, data) {
-  try { localStorage.setItem('occ_cache_v1', JSON.stringify({ fileName, data, ts: Date.now() })); } catch (_) { }
-}
-function cacheLoad() {
-  try {
-    const raw = localStorage.getItem('occ_cache_v1');
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj || !obj.data || !Array.isArray(obj.data)) return null;
-    return obj;
-  } catch (_) { return null; }
-}
-
 // Utils
 function esc(str) {
   return String(str ?? '')
@@ -432,13 +418,23 @@ function escJs(str) {
   return String(str ?? '').replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
-// Boot
-(function init() {
-  const cache = cacheLoad();
-  if (cache && cache.data && cache.data.length) {
-    all = cache.data;
-    $('fileTag').textContent = `${cache.fileName || 'cache'} • ${all.length} linhas`;
+// Boot (carrega do SQLite via backend)
+(async function init() {
+  $('fileTag').textContent = 'nenhum arquivo carregado';
+  try {
+    const r = await fetch('/api/data/ocorrencias', { method: 'GET' });
+    const payload = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(payload?.error || 'Falha ao carregar dados.');
+
+    const data = Array.isArray(payload?.data) ? payload.data : [];
+    if (!data.length) return;
+
+    all = data;
+    $('fileTag').textContent = `${payload?.fileName || 'cache'} • ${all.length} linhas`;
     buildOptions();
     applyFilters();
+  } catch (err) {
+    console.error(err);
+    $('fileTag').textContent = 'nenhum arquivo carregado';
   }
 })();

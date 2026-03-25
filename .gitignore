@@ -6,3 +6,10 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 
+# SQLite (o db principal deve ser versionável; mas WAL/SHM não)
+database.db-wal
+database.db-shm
+
+# Arquivos de teste locais (não versionar)
+tmp_*.xlsx
+

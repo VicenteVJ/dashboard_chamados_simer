@@ -4,6 +4,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const XLSX = require('xlsx');
 const { parse: parseCsv } = require('csv-parse/sync');
+const { db, upsertMeta } = require('./database');
 
 const app = express();
 
@@ -18,7 +19,10 @@ const upload = multer({
 const PUBLIC_DIR = __dirname;
 
 app.disable('x-powered-by');
-app.use(express.static(PUBLIC_DIR));
+// Servir apenas o que a aplicação precisa (evita expor arquivos sensíveis como server.js/database.db)
+app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets')));
+app.use('/Paginas', express.static(path.join(PUBLIC_DIR, 'Paginas')));
+app.use('/img', express.static(path.join(PUBLIC_DIR, 'img')));
 
 const normKey = (s) =>
   String(s || '')
@@ -216,6 +220,56 @@ const parseWorkbookToRows = async (file) => {
   }
 };
 
+const persistTickets = (rows, fileName) => {
+  const insert = db.prepare(`
+    INSERT INTO tickets (
+      numero, abertoEm, departamento, solicitante, cliente, servico, assunto,
+      responsavel, categoria, ultimaAcao, status, priorizado
+    ) VALUES (
+      @numero, @abertoEm, @departamento, @solicitante, @cliente, @servico, @assunto,
+      @responsavel, @categoria, @ultimaAcao, @status, @priorizado
+    )
+  `);
+
+  const trx = db.transaction(() => {
+    db.prepare('DELETE FROM tickets').run();
+    const stmt = insert;
+    const info = db.prepare('SELECT 1').get(); // keeps prepare warm (no-op)
+    void info;
+    rows.forEach((r) => stmt.run(r));
+  });
+
+  trx();
+  upsertMeta('tickets', fileName);
+};
+
+const persistOcorrencias = (rows, fileName) => {
+  const insert = db.prepare(`
+    INSERT INTO ocorrencias (
+      ticket, departamento, responsavel, tipo, dataAbert, titulo, aliare,
+      prioridade, impacto, validacao, statusAtual, tipoOc
+    ) VALUES (
+      @ticket, @departamento, @responsavel, @tipo, @dataAbert, @titulo, @aliare,
+      @prioridade, @impacto, @validacao, @statusAtual, @tipoOc
+    )
+  `);
+
+  const trx = db.transaction(() => {
+    db.prepare('DELETE FROM ocorrencias').run();
+    rows.forEach((r) => insert.run(r));
+  });
+
+  trx();
+  upsertMeta('ocorrencias', fileName);
+};
+
+const shouldPersist = (req) => {
+  // padrão: persistir (para manter compatibilidade com os uploads principais atuais)
+  const raw = req.body?.persist;
+  if (raw === undefined) return true;
+  return !(raw === '0' || raw === 0 || raw === 'false' || raw === 'no');
+};
+
 app.post('/api/parse/tickets', upload.single('file'), (req, res) => {
   (async () => {
     const file = req.file;
@@ -225,6 +279,15 @@ app.post('/api/parse/tickets', upload.single('file'), (req, res) => {
     const data = rows
       .map(normalizeTicket)
       .filter((t) => String(t.numero || '').trim() !== '');
+
+    if (shouldPersist(req)) {
+      persistTickets(
+        data.map((r) => ({
+          ...r
+        })),
+        file.originalname
+      );
+    }
 
     return res.json({ fileName: file.originalname, count: data.length, data });
   })().catch((err) => {
@@ -253,6 +316,10 @@ app.post('/api/parse/ocorrencias', upload.single('file'), (req, res) => {
       .map(normalizeOcorrenciaRow)
       .filter((r) => String(r.ticket || '').trim() !== '');
 
+    if (shouldPersist(req)) {
+      persistOcorrencias(data.map((r) => ({ ...r })), file.originalname);
+    }
+
     return res.json({ fileName: file.originalname, count: data.length, data });
   })().catch((err) => {
     // eslint-disable-next-line no-console
@@ -270,9 +337,38 @@ app.post('/api/parse/ocorrencias', upload.single('file'), (req, res) => {
   });
 });
 
-// SPA-ish fallback: servir portal
-app.get('/', (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
+
+app.get('/dashboard.html', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'dashboard.html')));
+
+app.get('/api/data/tickets', (_req, res) => {
+  const fileMeta = db.prepare('SELECT fileName FROM meta WHERE dataset = ?').get('tickets');
+  const fileName = fileMeta?.fileName || null;
+  const data = db
+    .prepare('SELECT numero, abertoEm, departamento, solicitante, cliente, servico, assunto, responsavel, categoria, ultimaAcao, status, priorizado FROM tickets')
+    .all();
+  return res.json({ fileName, count: data.length, data });
+});
+
+app.get('/api/data/ocorrencias', (_req, res) => {
+  const fileMeta = db.prepare('SELECT fileName FROM meta WHERE dataset = ?').get('ocorrencias');
+  const fileName = fileMeta?.fileName || null;
+  const data = db
+    .prepare('SELECT ticket, departamento, responsavel, tipo, dataAbert, titulo, aliare, prioridade, impacto, validacao, statusAtual, tipoOc FROM ocorrencias')
+    .all();
+  return res.json({ fileName, count: data.length, data });
+});
+
+app.post('/api/clear/tickets', (_req, res) => {
+  db.prepare('DELETE FROM tickets').run();
+  upsertMeta('tickets', null);
+  res.json({ ok: true });
+});
+
+app.post('/api/clear/ocorrencias', (_req, res) => {
+  db.prepare('DELETE FROM ocorrencias').run();
+  upsertMeta('ocorrencias', null);
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
