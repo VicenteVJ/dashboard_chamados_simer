@@ -31,9 +31,7 @@ let compareFilterMode = 'all';
 let compareOldMap = new Map(); // numero -> ticket velho
 let compareNewMap = new Map(); // numero -> ticket novo
 
-function $(id) { return document.getElementById(id); }
-
-function triggerFile() { $('fileInput').click(); }
+// Funções $, triggerFile movidas para utils.js
 
 function removeExcel(openAfter) {
   try { localStorage.removeItem('tickets_cache_v2'); } catch (_) { }
@@ -120,33 +118,34 @@ function handleFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  if (typeof XLSX === 'undefined') {
-    alert('Biblioteca XLSX não carregou. Verifique conexão com internet ou salve a biblioteca localmente.');
-    return;
-  }
+  const fd = new FormData();
+  fd.append('file', file);
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'dd/mm/yyyy' });
-
-      allTickets = rows.map(normalizeTicket).filter(t => String(t.numero || '').trim() !== '');
-      saveCache(file.name, allTickets);
-      setFileLabel(file.name, allTickets.length);
+  fetch('/api/parse/tickets', { method: 'POST', body: fd })
+    .then(async (r) => {
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const parts = [];
+        if (payload?.error) parts.push(String(payload.error));
+        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
+        if (payload?.hint) parts.push(String(payload.hint));
+        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
+      }
+      return payload;
+    })
+    .then((payload) => {
+      allTickets = Array.isArray(payload?.data) ? payload.data : [];
+      saveCache(payload?.fileName || file.name, allTickets);
+      setFileLabel(payload?.fileName || file.name, allTickets.length);
       buildFilterOptions();
       buildStatusMultiSelect();
       clearAllFilters(false);
       updateEverything();
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert('Falha ao ler o arquivo. Verifique se é um Excel válido e se a primeira planilha contém os dados.');
-    }
-  };
-  reader.readAsArrayBuffer(file);
+      alert(err?.message || 'Falha ao processar o arquivo.');
+    });
 }
 
 function setFileLabel(name, count) {
@@ -1515,28 +1514,30 @@ function handleCompareFile(event, which) {
   const file = event.target.files[0];
   if (!file) return;
 
-  if (typeof XLSX === 'undefined') {
-    alert('Biblioteca XLSX não carregou.');
-    return;
-  }
+  const fd = new FormData();
+  fd.append('file', file);
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'dd/mm/yyyy' });
-
-      const tickets = rows.map(normalizeTicket).filter(t => String(t.numero || '').trim() !== '');
+  fetch('/api/parse/tickets', { method: 'POST', body: fd })
+    .then(async (r) => {
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const parts = [];
+        if (payload?.error) parts.push(String(payload.error));
+        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
+        if (payload?.hint) parts.push(String(payload.hint));
+        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
+      }
+      return payload;
+    })
+    .then((payload) => {
+      const tickets = Array.isArray(payload?.data) ? payload.data : [];
 
       if (which === 'old') {
         compareOldTickets = tickets;
-        $('cmpOldName').textContent = file.name;
+        $('cmpOldName').textContent = payload?.fileName || file.name;
       } else {
         compareNewTickets = tickets;
-        $('cmpNewName').textContent = file.name;
+        $('cmpNewName').textContent = payload?.fileName || file.name;
       }
 
       // limpa resultados para evitar confusão
@@ -1545,13 +1546,11 @@ function handleCompareFile(event, which) {
       compareNewMap = new Map();
       renderCompareTable();
       updateCompareKpis();
-
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert('Falha ao ler o arquivo de comparação. Verifique se é um Excel válido.');
-    }
-  };
-  reader.readAsArrayBuffer(file);
+      alert(err?.message || 'Falha ao processar o arquivo de comparação.');
+    });
 }
 
 function runCompare() {

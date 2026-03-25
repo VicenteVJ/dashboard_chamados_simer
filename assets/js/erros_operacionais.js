@@ -2,78 +2,22 @@ let all = [];
 let filtered = [];
 let activeKpi = 'all';
 
-function $(id) { return document.getElementById(id); }
+// Funções utilitárias importadas de utils.js
 
 function toggleTheme() {
-  const app = $('app');
-  const next = app.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  app.setAttribute('data-theme', next);
-  try { localStorage.setItem('occ_theme', next); } catch (_) { }
+  // evita recursão (este arquivo define toggleTheme e sobrescreve o global)
+  window.DashUtils?.toggleTheme?.('app', 'occ_theme');
 }
 (function bootTheme() {
-  try {
-    const t = localStorage.getItem('occ_theme');
-    if (t) $('app').setAttribute('data-theme', t);
-  } catch (_) { }
+  window.DashUtils?.initTheme?.('app', 'occ_theme');
 })();
 
-function triggerFile() { $('fileInput').click(); }
+function triggerFile() { window.DashUtils?.triggerFile?.('fileInput'); }
 
-function normKey(s) {
-  return String(s || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
-function findValue(row, candidates) {
-  const keys = Object.keys(row);
-  for (const c of candidates) {
-    const cn = normKey(c);
-    const found = keys.find(k => normKey(k).includes(cn));
-    if (found !== undefined && row[found] !== undefined && row[found] !== null && String(row[found]).trim() !== '')
-      return String(row[found]).trim();
-  }
-  return '';
-}
+// Funções normKey, findValue, parseDate movidas para utils.js
 
-function parseDate(v) {
-  if (!v) return null;
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
-  const s = String(v).trim();
-  if (!s) return null;
-
-  // Excel serial (às vezes vem como número)
-  if (/^\d+(\.\d+)?$/.test(s)) {
-    const serial = parseFloat(s);
-    if (serial > 1 && serial < 100000) {
-      const epoch = new Date(Date.UTC(1899, 11, 30));
-      const ms = epoch.getTime() + serial * 86400000;
-      const d = new Date(ms);
-      if (!isNaN(d.getTime()) && d.getFullYear() > 1990 && d.getFullYear() < 2100) return d;
-    }
-  }
-
-  // BR dd/mm/yyyy hh:mm
-  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if (br) {
-    let [, dd, mm, yy, hh = '0', mi = '0', ss = '0'] = br;
-    yy = yy.length === 2 ? '20' + yy : yy;
-    const d = new Date(parseInt(yy), parseInt(mm) - 1, parseInt(dd), parseInt(hh), parseInt(mi), parseInt(ss));
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // ISO-ish
-  const iso = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if (iso) {
-    const [, yy, mm, dd, hh = '0', mi = '0', ss = '0'] = iso;
-    const d = new Date(parseInt(yy), parseInt(mm) - 1, parseInt(dd), parseInt(hh), parseInt(mi), parseInt(ss));
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  const nd = new Date(s);
-  return isNaN(nd.getTime()) ? null : nd;
-}
 function fmtDate(v) {
-  const d = parseDate(v);
+  const d = window.DashUtils?.parseDate?.(v) ?? null;
   if (!d) return v ? String(v) : '-';
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -84,21 +28,21 @@ function fmtDate(v) {
 }
 
 function normalizeRow(row) {
-  const ticket = findValue(row, ['ticket', 'chamado', 'id', 'numero', 'número']);
+  const ticket = window.DashUtils?.findValue?.(row, ['ticket', 'chamado', 'id', 'numero', 'número']) ?? '';
   let ticketFix = ticket;
   if (/^\d+\.0+$/.test(ticketFix)) ticketFix = ticketFix.split('.')[0];
 
-  const departamento = findValue(row, ['departamento', 'depto', 'setor', 'área', 'area']);
-  const responsavel = findValue(row, ['responsavel', 'responsável', 'responsavel ti', 'owner', 'atribuido', 'atribuído']);
-  const tipo = findValue(row, ['tipo']);
-  const dataAbert = findValue(row, ['data abert', 'data abertura', 'aberto em', 'abertura']);
-  const titulo = findValue(row, ['titulo / descricao', 'título / descrição', 'titulo', 'título', 'descricao', 'descrição']);
-  const aliare = findValue(row, ['aliare']);
-  const prioridade = findValue(row, ['prioridade', 'prioridad']);
-  const impacto = findValue(row, ['pimpacto', 'impacto']);
-  const validacao = findValue(row, ['validacao ti', 'validação ti', 'observacao ti', 'observação ti', 'validacao', 'validação']);
-  const statusAtual = findValue(row, ['status at', 'status atual', 'status']);
-  const tipoOc = findValue(row, ['tipo de ocorrencia', 'tipo de ocorrência', 'ocorrencia', 'ocorrência']);
+  const departamento = window.DashUtils?.findValue?.(row, ['departamento', 'depto', 'setor', 'área', 'area']) ?? '';
+  const responsavel = window.DashUtils?.findValue?.(row, ['responsavel', 'responsável', 'responsavel ti', 'owner', 'atribuido', 'atribuído']) ?? '';
+  const tipo = window.DashUtils?.findValue?.(row, ['tipo']) ?? '';
+  const dataAbert = window.DashUtils?.findValue?.(row, ['data abert', 'data abertura', 'aberto em', 'abertura']) ?? '';
+  const titulo = window.DashUtils?.findValue?.(row, ['titulo / descricao', 'título / descrição', 'titulo', 'título', 'descricao', 'descrição']) ?? '';
+  const aliare = window.DashUtils?.findValue?.(row, ['aliare']) ?? '';
+  const prioridade = window.DashUtils?.findValue?.(row, ['prioridade', 'prioridad']) ?? '';
+  const impacto = window.DashUtils?.findValue?.(row, ['pimpacto', 'impacto']) ?? '';
+  const validacao = window.DashUtils?.findValue?.(row, ['validacao ti', 'validação ti', 'observacao ti', 'observação ti', 'validacao', 'validação']) ?? '';
+  const statusAtual = window.DashUtils?.findValue?.(row, ['status at', 'status atual', 'status']) ?? '';
+  const tipoOc = window.DashUtils?.findValue?.(row, ['tipo de ocorrencia', 'tipo de ocorrência', 'ocorrencia', 'ocorrência']) ?? '';
 
   return {
     ticket: ticketFix,
@@ -134,32 +78,33 @@ function handleFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  if (typeof XLSX === 'undefined') {
-    alert('Biblioteca XLSX não carregou. Verifique conexão com internet ou use uma cópia local.');
-    return;
-  }
+  const fd = new FormData();
+  fd.append('file', file);
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'dd/mm/yyyy' });
-
-      all = rows.map(normalizeRow).filter(r => String(r.ticket || '').trim() !== '');
-      cacheSave(file.name, all);
-      $('fileTag').textContent = `${file.name} • ${all.length} linhas`;
-
+  fetch('/api/parse/ocorrencias', { method: 'POST', body: fd })
+    .then(async (r) => {
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const parts = [];
+        if (payload?.error) parts.push(String(payload.error));
+        if (payload?.detail && String(payload.detail) !== String(payload.error || '')) parts.push(String(payload.detail));
+        if (payload?.hint) parts.push(String(payload.hint));
+        throw new Error(parts.join('\n') || 'Falha ao processar o arquivo.');
+      }
+      return payload;
+    })
+    .then((payload) => {
+      all = Array.isArray(payload?.data) ? payload.data : [];
+      cacheSave(payload?.fileName || file.name, all);
+      $('fileTag').textContent = `${payload?.fileName || file.name} • ${all.length} linhas`;
       buildOptions();
       clearAll(false);
       applyFilters();
-    } catch (err) {
+    })
+    .catch((err) => {
       console.error(err);
-      alert('Falha ao ler o Excel. Confirme se a primeira planilha contém os dados.');
-    }
-  };
-  reader.readAsArrayBuffer(file);
+      alert(err?.message || 'Falha ao processar o arquivo.');
+    });
 }
 
 function buildOptions() {
