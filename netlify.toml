@@ -1,0 +1,17 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["netlify/functions/**"]
+
+[[redirects]]
+  from = "/api/parse/tickets"
+  to = "/.netlify/functions/parse-tickets"
+  status = 200
+
+[[redirects]]
+  from = "/api/parse/ocorrencias"
+  to = "/.netlify/functions/parse-ocorrencias"
+  status = 200
